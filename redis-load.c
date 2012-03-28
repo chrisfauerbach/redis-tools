@@ -75,6 +75,7 @@ static struct config {
     int longtail;
     int longtail_order;
     char *hostip;
+    char *unixSocket;
     int hostport;
     int keepalive;
     long long start;
@@ -150,8 +151,11 @@ static void clientDisconnected(const redisAsyncContext *context, int status) {
 
 static client createClient(void) {
     client c = zmalloc(sizeof(struct _client));
-
-    c->context = redisAsyncConnect(config.hostip,config.hostport);
+    if (config.unixSocket){
+      c->context = redisAsyncConnectUnix(config.unixSocket);
+    }else{
+      c->context = redisAsyncConnect(config.hostip,config.hostport);
+    }
     c->context->data = c;
     redisAsyncSetDisconnectCallback(c->context,clientDisconnected);
     if (c->context->err) {
@@ -348,6 +352,7 @@ static void usage(char *wrong) {
 "Usage: redis-load ... options ...\n\n"
 " host <hostname>      Server hostname (default 127.0.0.1)\n"
 " port <hostname>      Server port (default 6379)\n"
+" -s <unixSocket>      Unix socket to connect using\n"
 " clients <clients>    Number of parallel connections (default 50)\n"
 " requests <requests>  Total number of requests (default 10k)\n"
 " mindatasize <size>   Min data size of string values in bytes (default 1)\n"
@@ -436,6 +441,9 @@ static void parseOptions(int argc, char **argv) {
             i++;
         } else if (!strcmp(argv[i],"port") && !lastarg) {
             config.hostport = atoi(argv[i+1]);
+            i++;
+        } else if (!strcmp(argv[i],"-s") && !lastarg) {
+            config.unixSocket = argv[i+1];
             i++;
         } else if (!strcmp(argv[i],"datasize") && !lastarg) {
             config.datasize_max = config.datasize_min = atoi(argv[i+1]);
@@ -565,7 +573,7 @@ int main(int argc, char **argv) {
 
     config.hostip = "127.0.0.1";
     config.hostport = 6379;
-
+    config.unixSocket = 0;
     parseOptions(argc,argv);
     config.databuf = zmalloc(config.datasize_max);
 

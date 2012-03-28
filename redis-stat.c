@@ -33,6 +33,7 @@
 #define STAT_LATENCY 4
 
 static struct config {
+    char *unixSocket;
     char *hostip;
     int hostport;
     redisContext *context;
@@ -85,7 +86,11 @@ static redisReply *reconnectingCommand(const char *cmd) {
             fflush(stdout);
 
             redisFree(c);
-            c = redisConnect(config.hostip,config.hostport);
+            if (config.unixSocket){
+              c = config.context = redisConnectUnix(config.unixSocket);
+            }else{
+              c = redisConnect(config.hostip,config.hostport);
+            }
             usleep(config.delay*1000);
         }
 
@@ -532,6 +537,7 @@ static void usage(char *wrong) {
 "Options:\n"
 " host <hostname>      Server hostname (default 127.0.0.1)\n"
 " port <hostname>      Server port (default 6379)\n"
+" -s <unix socket>     Unix socket to connect using\n"
 " delay <milliseconds> Delay between requests (default: 1000 ms, 1 second).\n"
 " samplesize <keys>    Number of keys to sample for 'vmpage' stat.\n"
 " logscale             User power-of-two logarithmic scale in graphs.\n"
@@ -545,10 +551,13 @@ static int parseOptions(int argc, char **argv) {
     for (i = 1; i < argc; i++) {
         int lastarg = (i == (argc-1));
 
-        if (!strcmp(argv[i],"host") && !lastarg) {
+        if        (!strcmp(argv[i],"-s"    ) && !lastarg) {
+            config.unixSocket = argv[i+1];
+            i++;
+        } else if (!strcmp(argv[i],"host" ) && !lastarg) {
             config.hostip = argv[i+1];
             i++;
-        } else if (!strcmp(argv[i],"port") && !lastarg) {
+        } else if (!strcmp(argv[i],"port" ) && !lastarg) {
             config.hostport = atoi(argv[i+1]);
             i++;
         } else if (!strcmp(argv[i],"delay") && !lastarg) {
@@ -572,6 +581,7 @@ static int parseOptions(int argc, char **argv) {
         } else if (!strcmp(argv[i],"help")) {
             usage(NULL);
         } else {
+            printf("Missing something? %s", argv[i]);
             usage(argv[i]);
         }
     }
@@ -587,10 +597,14 @@ int main(int argc, char **argv) {
     config.delay = 1000;
     config.samplesize = 10000;
     config.logscale = 0;
-
+    config.unixSocket  = 0;//"/tmp/redis.sock";
     parseOptions(argc,argv);
 
-    c = config.context = redisConnect(config.hostip,config.hostport);
+    if (config.unixSocket){
+      c = config.context = redisConnectUnix(config.unixSocket);
+    }else{
+      c = redisConnect(config.hostip,config.hostport);
+    }
     if (c->err) {
         fprintf(stderr, "Error connecting to Redis: %s\n", c->errstr);
         exit(1);
