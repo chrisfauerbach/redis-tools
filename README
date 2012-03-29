@@ -1,0 +1,28 @@
+README
+-----------------------------
+This code was forked from the official redis-tools repository on March 28,2012.
+The source for this can be found at: https://github.com/antirez/redis-tools
+
+Building
+-----------------------------
+To compile, simply:
+make clean
+make
+
+Running 
+----------------------------
+The only reason this was forked was to add a -s parameter to both redis-stat and redis-load.
+
+The -s parameter allows you to specify a unix socket in place of a TCP socket to execute, exactly like redis-cli
+
+e.g.
+./redis-stat -s /tmp/redisunix.sock
+
+as long as you have the following in your redis.conf file
+
+unixsocket /tmp/redisunix.sock
+
+
+Good luck!
+
+
